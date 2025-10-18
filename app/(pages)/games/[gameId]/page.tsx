@@ -1,9 +1,11 @@
 import Footer from "@/components/footer/Footer";
 import Header from "@/components/header/Header";
 import GameDetails from "@/components/pages/game/GameDetails";
+import { Metadata } from "next";
+import { GamePageParams } from "@/types";
 
 // Function to fetch game data for metadata generation
-async function getGameData(gameId) {
+async function getGameData(gameId: string) {
   try {
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_BACKEND_URL}/ai-games/games/${gameId}`,
@@ -23,7 +25,7 @@ async function getGameData(gameId) {
 }
 
 // Generate metadata for the page based on game data
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params }: GamePageParams): Promise<Metadata> {
   const { gameId } = await params;
   const gameData = await getGameData(gameId);
   
@@ -73,7 +75,7 @@ export async function generateMetadata({ params }) {
   const cleanDescription = (gameData.description || "").replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
   const truncatedDescription = cleanDescription.length > 180 ? `${cleanDescription.slice(0, 177)}...` : cleanDescription;
 
-  let ogWidth, ogHeight;
+  let ogWidth: number | undefined, ogHeight: number | undefined;
   
   if (isUsingNpcImage) {
     ogWidth = undefined;
@@ -85,7 +87,7 @@ export async function generateMetadata({ params }) {
   
   const imageType = (imageUrl || '').toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-  const imageObject = {
+  const imageObject: any = {
     url: imageUrl,
     secureUrl: imageUrl,
     alt: gameData.game_name,
@@ -99,38 +101,26 @@ export async function generateMetadata({ params }) {
 
   return {
     title: `${gameData.game_name} | OpenBook.Games`,
-    description: truncatedDescription || "Explore this interactive game on OpenBook.Games",
+    description: truncatedDescription || `Play ${gameData.game_name} on OpenBook.Games`,
+    keywords: gameData.tags ? gameData.tags.join(", ") : "interactive game, AI game, OpenBook",
+    authors: [{ name: gameData.creator_name || "OpenBook Creator" }],
     openGraph: {
       title: gameData.game_name,
-      description: truncatedDescription || "Explore this interactive game on OpenBook.Games",
+      description: truncatedDescription || `Play ${gameData.game_name} on OpenBook.Games`,
       url: gameUrl,
       siteName: "OpenBook.Games",
-      images: [imageObject],
       locale: "en_US",
-      type: "website",
+      type: "article",
+      publishedTime: gameData.created_at,
+      modifiedTime: gameData.updated_at,
+      images: [imageObject],
     },
     twitter: {
       card: "summary_large_image",
       title: gameData.game_name,
-      description: truncatedDescription || "Explore this interactive game on OpenBook.Games",
-      images: [
-        {
-          url: imageUrl,
-          alt: gameData.game_name,
-          ...(ogWidth && ogHeight && { width: ogWidth, height: ogHeight }),
-        }
-      ],
-      creator: "@OpenBookGames", 
-      site: "@OpenBookGames",
-    },
-    other: {
-      ...(ogWidth && ogHeight && {
-        'og:image:width': String(ogWidth),
-        'og:image:height': String(ogHeight),
-      }),
-      'og:image:alt': gameData.game_name,
-      'og:image:type': imageType,
-      'theme-color': '#5865F2', 
+      description: truncatedDescription || `Play ${gameData.game_name} on OpenBook.Games`,
+      creator: `@${gameData.creator_name || "OpenBook"}`,
+      images: [imageObject],
     },
     alternates: {
       canonical: gameUrl,
@@ -138,18 +128,17 @@ export async function generateMetadata({ params }) {
   };
 }
 
-// This is a Server Component that will be pre-rendered to HTML
-export default async function GameDetailsPage({ params }) {
-  // No need to fetch game data here as it's already fetched in generateMetadata
-  // and the GameDetails component will fetch it again on the client side
+export default async function GamePage({ params }: GamePageParams) {
   const { gameId } = await params;
+  
   return (
     <>
       <Header />
-      <main className="mt-24">
-        <GameDetails id={gameId} />
+      <main className="pt-[5.5rem] lg:pt-24">
+        <GameDetails gameId={gameId} />
       </main>
       <Footer />
     </>
   );
 }
+

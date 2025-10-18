@@ -6,3 +6,5 @@ export * from './GameState';
 export * from './LoaderInterface';
 export * from './SceneGraphInterface';
 export * from './user';
+export * from './pages';
+export * from './gameplay';
