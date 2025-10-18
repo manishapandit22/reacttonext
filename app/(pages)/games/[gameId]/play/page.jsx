@@ -17,7 +17,7 @@ import { useCommonAPI } from "@/lib/apis/commonAPIs";
 import Cookie from "js-cookie";
 import CharacterSelectionModal from "@/components/pages/play/CharacterSelectionModal";
 // import CanvasViewer from "@/components/CanvasViewer";
-import { isYouTubeUrl } from "@/utlis/youtubeUtils";
+import { isYouTubeUrl } from "@/utils/youtubeUtils";
 import SettingsModal from "@/components/pages/play/SettingsModal";
 import SettingsButton from "@/components/pages/play/SettingsButton";
 

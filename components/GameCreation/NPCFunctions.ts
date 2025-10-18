@@ -1,4 +1,4 @@
-import { GameData, NPC, NPCImage } from '../../interface/Create';
+import { GameData, NPC, NPCImage } from '@/types';
 import { defaultStatBlocks } from '../create_async/utils/DefaultBlocks';
 
 export async function handleNPCSave(

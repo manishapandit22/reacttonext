@@ -10,7 +10,7 @@ export interface FormErrors {
   npcsPlayable?: string;
 }
 
-import { GameData } from '../../interface/Create';
+import { GameData } from '@/types';
 
 export const validateForm = (
   gameData: GameData,

@@ -19,12 +19,15 @@
       "@/app/*": ["app/*"],
       "@/contexts/*": ["contexts/*"],
       "@/lib/*": ["lib/*"],
-      "@/utlis/*": ["utlis/*"],
+      "@/utils/*": ["utils/*"],
       "@/constants/*": ["constants/*"],
       "@/data/*": ["data/*"],
       "@/hooks/*": ["hooks/*"],
       "@/public/*": ["public/*"],
-      "@/types/*": ["components/types/*"]
+      "@/types/*": ["types/*"],
+      "@/globals/*": ["globals/*"],
+      "@/interface/*": ["types/*"],
+      "@/shaders/*": ["shaders/*"]
     },
     "noImplicitAny": false,
     "noImplicitThis": false,

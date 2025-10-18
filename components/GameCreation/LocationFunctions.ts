@@ -1,4 +1,4 @@
-import { GameData, Location, LocationImage } from '../../interface/Create';
+import { GameData, Location, LocationImage } from '@/types';
 
 export function addLocation(gameData: GameData, setGameData: (cb: (prev: GameData) => GameData) => void): void {
   setGameData((prev) => ({

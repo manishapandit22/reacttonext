@@ -1,5 +1,5 @@
 import useAxiosWithAuth from '@/hooks/useAxiosWithAuth';
-import { GameData } from '../interface/Create';
+import { GameData } from '@/types';
 import React, { createContext, ReactNode, useState, useContext, Dispatch, SetStateAction, useEffect, useRef } from 'react';
 
 interface GameContextProviderProps {

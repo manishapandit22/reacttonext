@@ -1,5 +1,5 @@
 import { useGameStore } from './zustand';
-import type { GameState } from '../interface/GameState';
+import type { GameState } from '@/types';
 
 export const useGamePieces = () => useGameStore((state: GameState) => state.gamePieces);
 export const useSelectedPiece = () => useGameStore((state: GameState) => state.selectedPiece);

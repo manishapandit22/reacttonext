@@ -10,7 +10,7 @@ import ImageModal from "../modals/ImageModal";
 import { useUser } from "../../contexts/UserContext";
 import { GameCreationSuccess } from "./GameCreateSuccess";
 import CharacterCreatorModal from "./CharacterStats";
-import { GameData, NPC } from "../../interface/Create";
+import { GameData, NPC } from "@/types";
 import { validateForm, FormErrors } from "../GameCreation/FormValidate";
 import { fetchGame, fetchGames } from "../GameCreation/CommonFunction";
 import { useGameContext } from "../../contexts/GameContext";

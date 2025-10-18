@@ -1,0 +1,12 @@
+export const handleDarkMode = (): void => {
+  const htmlElm = document.getElementsByTagName("html")[0];
+  const isDarkMode = localStorage?.getItem("idDarkMode");
+  if (JSON.parse(isDarkMode || "false") || !isDarkMode) {
+    htmlElm.classList.remove("dark");
+    localStorage.setItem("idDarkMode", "false");
+  } else {
+    htmlElm.classList.add("dark");
+    localStorage.setItem("idDarkMode", "true");
+  }
+};
+

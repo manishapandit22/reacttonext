@@ -8,7 +8,7 @@ import { FormErrors } from '../../GameCreation/FormValidate';
 import { HiOutlineUser, HiOutlineTrash, HiOutlinePlusCircle, HiOutlinePhotograph } from 'react-icons/hi';
 import { FaRegImages } from 'react-icons/fa';
 import LoadingSpinner from '../../ui/LoadingSpinner';
-import { NPC } from '../../../interface/Create';
+import { NPC } from '@/types';
 import { useMultiAutoSave } from '@/lib/apis/useSaveWithDebounce';
 
 import NPCClassSelector from '../NPCClassSelector';

@@ -1,5 +1,5 @@
 import { PathFinder } from './PathFind';
-import type { GamePiece } from '../interface/GamePiece';
+import type { GamePiece } from '@/types';
 
 export interface EnemyAIDecision {
   type: 'move' | 'attack' | 'idle';
