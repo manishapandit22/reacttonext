@@ -500,6 +500,9 @@ const GameForm = ({ game_id, isEdit }: Props) => {
         formData.append("npc_name", npc.name);
         formData.append("npc_description", npc.description);
         formData.append("is_playable", String(npc.playable));
+        if (npc.ai_voice) {
+          formData.append("ai_voice", npc.ai_voice);
+        }
         updated = await createNPC(gameId, formData);
         npcData = updated?.success?.data || updated;
       } else {
@@ -507,6 +510,9 @@ const GameForm = ({ game_id, isEdit }: Props) => {
         formData.append("npc_name", npc.name);
         formData.append("npc_description", npc.description);
         formData.append("is_playable", String(npc.playable));
+        if (npc.ai_voice) {
+          formData.append("ai_voice", npc.ai_voice);
+        }
         if (npc.class) {
           formData.append("npc_class", npc.class);
         }
@@ -536,6 +542,7 @@ const GameForm = ({ game_id, isEdit }: Props) => {
               playable: npcData.is_playable !== undefined ? npcData.is_playable : n.playable,
               class: npcData.npc_class || n.class,
               characterSheet: npcData.character_template || n.characterSheet,
+              ai_voice: npcData.ai_voice || n.ai_voice,
               images: newImages,
               savedImages: newSavedImages.map((img: any) => ({
                 id: img.image_id,
