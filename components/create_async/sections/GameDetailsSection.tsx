@@ -122,6 +122,10 @@ const GameDetailsSection: React.FC<GameDetailsSectionProps> = ({
         // selectedVoice: selectedVoice
       });
       setHasChanges(false);
+    } catch (error: any) {
+      console.error('GameDetailsSection - Save error:', error);
+      // Let the parent component handle the error toast
+      throw error;
     } finally {
       setSectionLoading(prev => ({ ...prev, gameDetails: false }));
     }

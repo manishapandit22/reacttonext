@@ -243,17 +243,24 @@ const GameContextProvider = ({ children }: GameContextProviderProps) => {
       formData.append(key, value);
     }
   };
-  if (data.gameName && data.gameName.trim()) {
-    formData.append("game_name", data.gameName);
+  
+  // Required fields validation
+  if (!data.gameName || !data.gameName.trim()) {
+    throw new Error("Game name is required");
   }
+  if (!data.gameOpener || !data.gameOpener.trim()) {
+    throw new Error("Game opener is required");
+  }
+  if (!(data.previewImage instanceof File)) {
+    throw new Error("Preview image is required");
+  }
+  
+  formData.append("game_name", data.gameName);
+  formData.append("game_opener", data.gameOpener);
+  formData.append("preview_image", data.previewImage);
+  
   if (data.gameDescription && data.gameDescription.trim()) {
     formData.append("description", data.gameDescription);
-  }
-  if (data.gameOpener && data.gameOpener.trim()) {
-    formData.append("game_opener", data.gameOpener);
-  }
-  if (data.previewImage instanceof File) {
-    formData.append("preview_image", data.previewImage);
   }
   if (data.previewImageType && data.previewImageType.trim()) {
     formData.append("preview_image_type", data.previewImageType);
@@ -264,7 +271,7 @@ const GameContextProvider = ({ children }: GameContextProviderProps) => {
   appendIfExists("game_prompt", data.gamePrompt);
   appendIfExists("initial_instructions", data.initialInstructions);
   if (data.ai_voice) {
-    // formData.append("ai_voice", data.ai_voice);
+    formData.append("ai_voice", data.ai_voice);
   }
   if (Array.isArray(data.gameTags)) {
     data.gameTags.forEach((tag: string) => formData.append("game_tags", tag));
@@ -289,14 +296,24 @@ const GameContextProvider = ({ children }: GameContextProviderProps) => {
       formData.append(key, String(data[key]));
     }
   });
-  const response = await axiosInstance.post<R>(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/ai-games/games/drafts/`,
-    formData
-  );
-  if(response.status === 200){
-    console.log("got the response")
+  
+  try {
+    const response = await axiosInstance.post<R>(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/ai-games/games/drafts/`,
+      formData
+    );
+    if(response.status === 200){
+      console.log("got the response")
+    }
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating game draft:", error);
+    if (error.response?.data) {
+      console.error("Backend error details:", error.response.data);
+      throw new Error(JSON.stringify(error.response.data));
+    }
+    throw error;
   }
-  return response.data;
 }
 
 async function getInitGame<T>(gameId: T): Promise<T>{

@@ -233,6 +233,20 @@ const GameForm = ({ game_id, isEdit }: Props) => {
       let pendingChange = pendingChanges;
       let hasAssist = hasAssistant;
       if (!id) {
+        // Validate required fields before attempting to save
+        if (!details.gameName?.trim()) {
+          toast.error("Game name is required", { autoClose: 2000 });
+          return;
+        }
+        if (!details.gameOpener?.trim()) {
+          toast.error("Game opener is required", { autoClose: 2000 });
+          return;
+        }
+        if (!(gameData.previewImage instanceof File)) {
+          toast.error("Preview image is required. Please upload an image first.", { autoClose: 3000 });
+          return;
+        }
+        
         const res = await setInitialInstructions({
           gameName: details.gameName,
           gameDescription: details.gameDescription,
@@ -259,8 +273,33 @@ const GameForm = ({ game_id, isEdit }: Props) => {
       }
       toast.success("Game details saved!",{autoClose: 2000});
       setUnsavedChanges(false);
-    } catch (err) {
-      toast.error("Failed to save game details.",{autoClose: 2000});
+    } catch (err: any) {
+      console.error("Error saving game details:", err);
+      
+      // Parse error message for better user feedback
+      let errorMessage = "Failed to save game details.";
+      try {
+        const errorData = JSON.parse(err.message);
+        if (errorData) {
+          // Extract specific field errors
+          const fieldErrors = [];
+          for (const [field, errors] of Object.entries(errorData)) {
+            if (Array.isArray(errors)) {
+              fieldErrors.push(`${field}: ${errors.join(', ')}`);
+            }
+          }
+          if (fieldErrors.length > 0) {
+            errorMessage = fieldErrors.join('; ');
+          }
+        }
+      } catch {
+        // If error message isn't JSON, use the original message
+        if (err.message && !err.message.includes('[object')) {
+          errorMessage = err.message;
+        }
+      }
+      
+      toast.error(errorMessage, { autoClose: 4000 });
       throw err;
     }
   };
