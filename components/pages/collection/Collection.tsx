@@ -1,3 +1,4 @@
+"use client";
 import Image from "next/image";
 import Charts from "./Charts";
 import Items from "./Items";

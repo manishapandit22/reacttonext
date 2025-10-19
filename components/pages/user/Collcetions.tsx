@@ -26,6 +26,7 @@ export default function Collcetions({userID}) {
   const [games, setGames] = useState([])
   const [selectedGame, setSelectedGame] = useState(null);
   const [isCloning, setIsCloning] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const router = useRouter();
 

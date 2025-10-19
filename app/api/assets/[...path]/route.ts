@@ -2,26 +2,50 @@ import { NextRequest } from "next/server";
 
 import admin from 'firebase-admin';
 
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    });
-  } catch (error) {
-    console.error('Firebase admin initialization error:', error);
+// Initialize Firebase Admin only if credentials are available
+function initializeFirebase() {
+  if (!admin.apps.length) {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+
+    // Skip initialization during build if credentials are not available
+    if (!projectId || !clientEmail || !privateKey || !storageBucket) {
+      console.warn('Firebase credentials not available, skipping initialization');
+      return null;
+    }
+
+    try {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey: privateKey.replace(/\\n/g, '\n'),
+        }),
+        storageBucket,
+      });
+    } catch (error) {
+      console.error('Firebase admin initialization error:', error);
+      return null;
+    }
   }
+  return admin.storage().bucket();
 }
 
-const bucket = admin.storage().bucket();
+let bucket: any = null;
 
 async function handleDownloadAppRouter(request: NextRequest, filePath: any) {
   if (!filePath) {
     return Response.json({ error: 'File path is required' }, { status: 400 });
+  }
+
+  // Ensure Firebase is initialized
+  if (!bucket) {
+    bucket = initializeFirebase();
+    if (!bucket) {
+      return Response.json({ error: 'Firebase not configured' }, { status: 503 });
+    }
   }
 
   try {
@@ -74,6 +98,14 @@ async function handleGetURLAppRouter(request: NextRequest, filePath: any) {
     return Response.json({ error: 'File path is required' }, { status: 400 });
   }
 
+  // Ensure Firebase is initialized
+  if (!bucket) {
+    bucket = initializeFirebase();
+    if (!bucket) {
+      return Response.json({ error: 'Firebase not configured' }, { status: 503 });
+    }
+  }
+
   try {
     const file = bucket.file(filePath);
     
@@ -106,6 +138,14 @@ async function handleGetURLAppRouter(request: NextRequest, filePath: any) {
 }
 
 async function handleListAppRouter(request: NextRequest, folderPath = '') {
+  // Ensure Firebase is initialized
+  if (!bucket) {
+    bucket = initializeFirebase();
+    if (!bucket) {
+      return Response.json({ error: 'Firebase not configured' }, { status: 503 });
+    }
+  }
+
   try {
     const options = {
       prefix: folderPath ? `${folderPath}/` : '',
@@ -153,6 +193,14 @@ async function handleListAppRouter(request: NextRequest, folderPath = '') {
 async function handleMetadataAppRouter(request: any, filePath: any) {
   if (!filePath) {
     return Response.json({ error: 'File path is required' }, { status: 400 });
+  }
+
+  // Ensure Firebase is initialized
+  if (!bucket) {
+    bucket = initializeFirebase();
+    if (!bucket) {
+      return Response.json({ error: 'Firebase not configured' }, { status: 503 });
+    }
   }
 
   try {
