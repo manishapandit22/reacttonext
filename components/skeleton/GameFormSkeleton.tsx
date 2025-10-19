@@ -1,6 +1,6 @@
 const GameFormSkeleton = () => {
     return (
-      <div className="max-w-6xl mx-auto py-24 rounded-lg shadow mt-[200px] md:mt-[110px] animate-pulse">
+      <div className="max-w-6xl  mx-auto py-24 rounded-lg shadow mt-[200px] md:mt-[110px] animate-pulse">
         {/* Header */}
         <div className="max-w-[90%] mx-auto flex items-center gap-2 mb-6">
           <div className="h-8 w-8 bg-gray-300 dark:bg-jacarta-600 rounded"></div>

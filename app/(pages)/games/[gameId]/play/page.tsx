@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useRef, useCallback, use } from "react";
+import { useState, useEffect, useRef, useCallback, use, Suspense } from "react";
 import { TTSProvider } from "@/components/pages/play/TTSContext";
 import Sidebar from "@/components/pages/play/Sidebar";
 import ChatArea from "@/components/pages/play/ChatArea";
@@ -21,7 +21,7 @@ import { isYouTubeUrl } from "@/utils/youtubeUtils";
 import SettingsModal from "@/components/pages/play/SettingsModal";
 import SettingsButton from "@/components/pages/play/SettingsButton";
 
-const ChatPage = ({ params }) => {
+const ChatPageInner = ({ params }) => {
   const unwrappedParams = use(params);
   const [isStagingOrBackstage, setIsStagingOrBackstage] = useState(false);
 
@@ -1266,7 +1266,7 @@ const ChatPage = ({ params }) => {
         onClick={() => setSettingsModalOpen(true)}
         isOpen={settingsModalOpen}
       /> */}
-      <section className="relative h-screen flex flex-col">
+      <section className="relative h-screen   flex flex-col">
         {storyData && characterModalOpen && (
           <CharacterModal
             character={storyData}
@@ -1353,22 +1353,6 @@ const ChatPage = ({ params }) => {
               />
               
               <hr />
-              {/* 3D View Toggle Button */}
-              {/* {isStagingOrBackstage && (
-              <div className="absolute top-4 right-4 z-10">
-                <button
-                  onClick={handleCanvasViewerToggle}
-                  className={`p-2 rounded-lg shadow-lg transition-all duration-200 ${
-                    canvasViewerOpen
-                      ? 'bg-purple-600 text-white hover:bg-purple-700'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                  title={canvasViewerOpen ? "Hide 3D View" : "Show 3D View"}
-                >
-                  <FiBox className="w-5 h-5" />
-                </button>
-              </div>
-              )} */}
             </div>
             <ChatArea
               OnClick={() => setSettingsModalOpen(true)}
@@ -1448,6 +1432,21 @@ const ChatPage = ({ params }) => {
         />
       </section>
     </TTSProvider>
+  );
+};
+
+const ChatPage = ({ params }) => {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-jacarta-900 to-jacarta-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-accent mx-auto mb-4"></div>
+          <p className="text-white text-lg">Loading game...</p>
+        </div>
+      </div>
+    }>
+      <ChatPageInner params={params} />
+    </Suspense>
   );
 };
 
