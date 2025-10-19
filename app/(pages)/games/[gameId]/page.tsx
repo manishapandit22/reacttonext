@@ -134,7 +134,7 @@ export default async function GamePage({ params }: GamePageParams) {
   return (
     <>
       <Header />
-      <main className="pt-[5.5rem] lg:pt-24">
+      <main className="pt-[5.5rem] lg:pt-24  ">
         <GameDetails gameId={gameId} />
       </main>
       <Footer />

@@ -298,7 +298,7 @@ export default function ChatArea({
   return (
     <div
       ref={chatContainerRef}
-      className="pt-24 flex-1 overflow-y-auto bg-white dark:bg-transparent p-4 w-full mx-auto md:max-w-4xl relative"
+      className="pt-24 flex-1 overflow-y-auto bg-white dark:bg-transparent p-4 pl-20 w-full mx-auto md:max-w-4xl relative  "
     >
       {/* TTS Status Indicator removed per user preference */}
       {messages?.map((message, index) => {

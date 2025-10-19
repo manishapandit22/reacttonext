@@ -43,11 +43,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
   return (
     <>
       <header
-        className={`js-page-header fixed top-0 right-0 z-[1500] ${
-          sidebarOpen
-            ? "w-[calc(100%-300px)] md:w-[calc(100%-300px)] xl:w-[calc(100%-400px)]"
-            : "w-full"
-        } backdrop-blur transition-colors  ${
+        className={`js-page-header fixed top-0 right-0 z-20 w-full backdrop-blur transition-colors  ${
           scrolled ? "js-page-header--is-sticky" : ""
         }`}
       >

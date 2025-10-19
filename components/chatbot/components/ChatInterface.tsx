@@ -49,7 +49,7 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex-1 bg-jacarta-800 shadow-[0_0_5px_#8358ff] h-[90vh] p-4 rounded-lg rounded-tl-none rounded-bl-none  flex flex-col">
+    <div className="flex-1 bg-jacarta-800 shadow-[0_0_5px_#8358ff] h-[90vh] p-4 rounded-lg rounded-tl-none rounded-bl-none  flex flex-col ">
       <div className="flex flex-col h-full p-4">
         {/* Chat Messages */}
         <div className="flex flex-col gap-4 flex-1 overflow-y-auto px-4 py-4 mb-4">

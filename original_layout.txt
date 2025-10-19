@@ -1,0 +1,726 @@
+﻿
+>     return () => {
+        window.removeEventListener("resize", checkIfMobile);
+      };
+    }, []);
+  
+    const getToken = () => {
+      const token = Cookie.get("access_token");
+      return token;
+    };
+  
+    const token = getToken();
+  
+    useEffect(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        const wsUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL.replace(
+          "http",
+          "ws"
+        )}/ws/game/${unwrappedParams.gameId}/interact/`;
+        wsRef.current = new WebSocket(wsUrl, ["access_token", token]);
+  
+        wsRef.current.onopen = () => {
+          wsRef.current.send(
+            JSON.stringify({
+              type: "authentication",
+              token: token,
+            })
+          );
+        };
+  
+        wsRef.current.onmessage = (event) => {
+          const response = JSON.parse(event.data);
+        };
+  
+        wsRef.current.onerror = (error) => {
+          console.error("WebSocket Error:", error);
+          toast.error("Failed to connect to game server", { autoClose: 2000 });
+        };
+  
+>       return () => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.close();
+          }
+        };
+      }
+    }, [unwrappedParams.gameId, token]);
+  
+    const handleDiceRoll = async (roll_result) => {
+      setDiceRolling(true);
+      setCurrentFace(roll_result);
+      await new Promise((resolve) => setTimeout(resolve, 6001));
+      setDiceRolling(false);
+      setGetAnswer(true);
+    };
+  
+    const handleSend = async (user_query) => {
+      if (!unwrappedParams.gameId || !user_query) return;
+  
+      sendAudio.play().catch((err) => console.error("Error playing audio:", err));
+  
+      setGetAnswer(false);
+      setSuggestions(null);
+  
+      if (isInventoryRelatedContent(user_query)) {
+      }
+  
+      const messages_copy = [...messages];
+      messages_copy.push({ content: user_query, sent_by_user: true });
+      messages_copy.push({
+        content: "Thinking...",
+        sent_by_user: false,
+        type: "text",
+      });
+      setMessages(messages_copy);
+  
+      try {
+        const messageData = {
+          prompt: user_query,
+          game_id: unwrappedParams.gameId,
+          story_id: selectedStory?.story_id,
+        };
+  
+        // BEFORE sending, validate story context
+        if (!selectedStory?.story_id && !sessionId) {
+          console.error("Cannot send message: No valid story context");
+          toast.error("Please select or create a story first");
+          return;
+        }
+  
+        let tempMessageContent = "";
+  
+        wsRef.current.onmessage = async (event) => {
+          const response = JSON.parse(event.data);
+  
+          if (response.type === "text") {
+            tempMessageContent += response.content;
+            setMessages((prevMessages) => {
+              const newMessages = [...prevMessages];
+              newMessages[newMessages.length - 1] = {
+                content: tempMessageContent,
+                sent_by_user: false,
+                type: "text",
+                is_chunk: true,
+              };
+              return newMessages;
+            });
+          } else if (response.type === "final") {
+            audio.play().catch((err) => console.error("Error playing audio:", err));
+  
+            const finalResponse = response.content;
+  
+            if (!sessionId && finalResponse.thread_id) {
+              setSessionId(finalResponse.thread_id);
+            }
+  
+            if (!selectedStory && finalResponse.story_id && isNewStory) {
+              setStoryId(storyId);
+  
+              fetchStoryData(storyId);
+  
+              handleGetGameStories(unwrappedParams.gameId).then((storiesData) => {
+                const newStory = storiesData.find(story => story.story_id === storyId);
+                if (newStory) {
+                  setSelectedStory(newStory);
+                  setTimeout(() => {
+                    setIsNewStory(false);
+                  }, 2000);
+                }
+              });
+            }
+            else if (selectedStory && finalResponse.story_id === selectedStory.story_id) {
+              setTimeout(async () => {
+                await fetchStoryDataAndCompareChanges(selectedStory.story_id);
+              }, 2000);
+              
+              if (finalResponse.assistant_resp.parsed_content && 
+                  isInventoryRelatedContent(finalResponse.assistant_resp.parsed_content)) {
+                setTimeout(() => {
+                  debouncedInventoryUpdate();
+                }, 3000); 
+              }
+            }
+  
+            setMessages((prevMessages) => {
+              const newMessages = [...prevMessages];
+              const parts = makeMessageParts(
+                finalResponse.assistant_resp.parsed_content,
+                true
+              );
+  
+              newMessages.pop();
+  
+              parts.forEach((part) => {
+                newMessages.push({
+                  content: part.content,
+                  sent_by_user: false,
+                  type: part.type,
+                });
+              });
+  
+              return newMessages;
+            });
+  
+            if (finalResponse.assistant_resp.tools_output) {
+              const tools_output = finalResponse.assistant_resp.tools_output;
+              const roll_tool_result = tools_output
+                .filter((item) => {
+                  if (item.output) {
+                    const output = JSON.parse(item.output);
+                    return output.roll !== undefined && output.roll_needed === true;
+                  }
+                  return false;
+                })
+                .map((item) => ({
+                  ...item,
+                  output: JSON.parse(item.output),
+                }));
+  
+              if (roll_tool_result?.length > 0) {
+                handleDiceRoll(roll_tool_result[0].output.roll);
+              }
+            }
+          }
+        };
+  
+        wsRef.current.send(JSON.stringify(messageData));
+        getProfile();
+      } catch (err) {
+        console.error("Error sending message:", err);
+        toast.error(err.message || "Failed to send message", { autoClose: 2000 });
+        setMessages((prevMessages) => prevMessages.slice(0, -1));
+      }
+    };
+  
+    // Replace Problematic useEffect with Controlled Logic
+    useEffect(() => {
+      // Only run character selection logic when:
+      // 1. Game is loaded
+      // 2. Selected story exists with valid ID  
+      // 3. Story data is fetched
+      // 4. Character selection hasn't been completed yet
+      // 5. Story doesn't already have a character
+  
+      if (
+        game &&
+        selectedStory?.story_id &&
+        storyDataFetched &&
+        !characterSelectionComplete &&
+        !hasCharacterSelected(storyData)
+      ) {
+        const playableNpcs = game.game_npc?.filter((npc) => npc.is_playable) || [];
+  
+        if (playableNpcs.length === 1) {
+          // Auto-select single character
+          handleAutoSelectCharacter(playableNpcs[0]);
+        } else if (playableNpcs.length > 1) {
+          // Show character selection modal
+          setCharacterSelectionModalOpen(true);
+        }
+  
+        // Mark as complete regardless of outcome
+        setCharacterSelectionComplete(true);
+      }
+    }, [
+      game,
+      selectedStory?.story_id,
+      storyDataFetched,
+      characterSelectionComplete,
+      storyData
+    ]); // REMOVED: messages dependency
+  
+    const onSuggestionClick = (message) => {
+      if (message.startsWith("I rolled")) {
+        handleSend(message);
+        return;
+      }
+      if (message.startsWith("Show me a picture of the scene")) {
+        handleSend("Show me a picture of the scene");
+        return;
+      }
+      //   if (message.startsWith("Show me a picture of the scene")) {
+      //   const currentSuggestions = suggestions;
+      //   handleSend("Show me a picture of the scene");
+      //   setTimeout(() => {
+      //     setSuggestions(currentSuggestions);
+      //   }, 1000);
+      //   return;
+      // }
+      const suggestionIndex = suggestions.findIndex(
+        (suggestion) => suggestion.title === message.trim()
+      );
+  
+      if (suggestionIndex !== -1) {
+        // const formattedMessage = `I choose ${suggestionIndex + 1}. ${message}`;
+        const formattedMessage = `I choose ${suggestionIndex + 1}.`;
+        handleSend(formattedMessage);
+      } else {
+        console.error("Suggestion not found in the array.");
+      }
+    };
+  
+    const parseStoryOptions = (content) => {
+      if (!content) return [];
+      const paragraphs = content.split("\n\n");
+  
+      for (let i = paragraphs.length - 1; i >= 0; i--) {
+        const paragraph = paragraphs[i];
+  
+        const numberedOptions = [
+          ...paragraph.matchAll(/\s*(\d+)[\.\)\/\-\:]\s*(.*?)(?=\s*\d+[\.\)\/\-\:]|$)/g),
+        ];
+  
+        if (numberedOptions.length > 1) {
+          return numberedOptions.map(([, number, title]) => ({
+            number: parseInt(number, 10),
+            title: title.trim(),
+            subtitle: "",
+          }));
+        }
+  
+        const alphabeticalOptions = [
+          ...paragraph.matchAll(/\s*([A-Z])\)\s+(.*?)(?=\s*[A-Z]\)|$)/g),
+        ];
+  
+        if (alphabeticalOptions.length > 1) {
+          return alphabeticalOptions.map(([, letter, title]) => ({
+            number: letter,
+            title: title.trim(),
+            subtitle: "",
+          }));
+        }
+      }
+  
+      return [];
+    };
+  
+    const makeMessageParts = (message, isLastNonUserMessage) => {
+      try {
+        const parts = message.split(
+          /(!\[.*?\]\(.*?\)|\[\s*(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)
+[^\s\]]+)\s*\]|https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v\/)|youtu\.be\/)[^\s\]]+)/
+        );
+        
+        const processedParts = parts.flatMap((rawPart) => {
+          const part = typeof rawPart === 'string' ? rawPart : String(rawPart || '');
+          const trimmed = part.trim();
+  
+          if (trimmed === '[' || trimmed === ']') {
+            return [];
+          }
+  
+          if (trimmed.startsWith("![")) {
+            try {
+              const imageUrl = trimmed.match(/\((.*?)\)/)?.[1];
+              if (imageUrl) {
+                return [{ type: "image", content: imageUrl }];
+              }
+            } catch (error) {
+              console.error("Error parsing image markdown:", error);
+              return [{ type: "text", content: trimmed }];
+            }
+          } else if (trimmed.startsWith("[")) {
+            const urlMatch = trimmed.match(/\[\s*(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|v
+\/)|youtu\.be\/)[^\s\]]+)\s*\]/);
+            
+            if (urlMatch && urlMatch[1]) {
+              const url = urlMatch[1];
+              
+              if (isYouTubeUrl(url)) {
+                const cleanUrl = url.split(/[\s\]]/)[0];
+                const withoutArtifacts = cleanUrl.replace(/\?autoplay=true$/i, '');
+                return [{ type: "image", content: withoutArtifacts }];
+              }
+            }
+          } else if (isYouTubeUrl(trimmed)) {
+            const cleanUrl = trimmed.split(/[\s\]]/)[0];
+            const withoutArtifacts = cleanUrl.replace(/\?autoplay=true$/i, '');
+            return [{ type: "image", content: withoutArtifacts }];
+          }
+  
+          if (trimmed) {
+            const artifactCleaned = trimmed
+>     return () => {
+        isMounted = false;
+      };
+    }, [unwrappedParams.gameId]);
+  
+    useEffect(() => {
+      const fetchStoriesAsync = async () => {
+        const storiesGet = await getGameStories(unwrappedParams.gameId)
+  
+        if (storiesGet.length === 0) {
+          handleStartNewStory()
+        }
+      }
+      fetchStoriesAsync()
+    }, [stories])
+  
+    useEffect(() => {
+      if (game) {
+        if (selectedStory) {
+          fetchStoryData(selectedStory.story_id);
+        }
+        fetchStoryMessages();
+        if (game?.ai_voice) {
+          setSelectedVoice(game?.ai_voice);
+        }
+      }
+    }, [game, selectedStory]);
+  
+    useEffect(() => {
+      if (storyData && storyDataFetched && storyId) {
+  
+        const storageKey = `prevStoryData_${storyId}`;
+        const prevData = JSON.parse(localStorage.getItem(storageKey));
+  
+        let deltas = {};
+        if (prevData && storyData.abilities && prevData.abilities) {
+          for (const ability in storyData.abilities) {
+            if (prevData.abilities[ability]) {
+              const prevScore = prevData.abilities[ability].score;
+              const currScore = storyData.abilities[ability].score;
+              if (currScore !== prevScore) {
+                deltas[ability] = currScore - prevScore;
+              }
+            }
+          }
+        }
+        setAbilityDeltas(deltas);
+  
+        if (!prevData) {
+          localStorage.setItem(storageKey, JSON.stringify(storyData));
+          return;
+        }
+  
+        const characterFields = [
+          "name", "gender", "class", "level", "actions", "abilities",
+          "skills", "HP", "max_hp", "background"
+        ];
+  
+        const hasCharacterChanged = characterFields.some(
+          (field) => JSON.stringify(storyData[field]) !== JSON.stringify(prevData[field])
+        );
+  
+        if (hasCharacterChanged && storyData.name) {
+          toast.info("Character sheet updated", { autoClose: 2000 });
+          setHasNewCharacter(true);
+        }
+  
+        if (
+          JSON.stringify(storyData.inventory) !== JSON.stringify(prevData.inventory) &&
+          storyData.inventory?.length > 0
+        ) {
+          toast.info("Inventory updated", { autoClose: 2000 });
+          setHasNewInventory(true);
+        }
+  
+        if (storyData.GP !== prevData.GP && storyData.GP > 0) {
+          toast.info(`Currency updated: +${storyData.GP} GP`, { autoClose: 2000 });
+          setHasNewInventory(true);
+        }
+  
+        localStorage.setItem(storageKey, JSON.stringify(storyData));
+      }
+    }, [storyData, storyDataFetched, storyId]);
+  
+    useEffect(() => {
+      if (characterModalOpen && !storyData && storyId) {
+        fetchStoryData(storyId);
+      }
+    }, [characterModalOpen, storyData, storyId, fetchStoryData]);
+  
+    useEffect(() => {
+      if (inventoryModalOpen && !storyData && storyId) {
+        fetchStoryData(storyId);
+      }
+    }, [inventoryModalOpen, storyData, storyId, fetchStoryData]);
+  
+    useEffect(() => {
+      if (game && isNewStory) {
+  
+        const playableNpcs = game.game_npc?.filter((npc) => npc.is_playable) || [];
+  
+        if (playableNpcs.length === 1) {
+  
+          setTimeout(async () => {
+            try {
+              const res = await axiosInstance.post(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/story/select-npc/`,
+                {
+                  // Don't pass story_id for new story creation
+                  npc_id: playableNpcs[0].id,
+                  game_id: game.game_id
+                }
+              );
+  
+              if (res.status === 200) {
+                const newStoryId = res.data.success.data.story_id;
+  
+                toast.success("Character automatically selected", { autoClose: 2000 });
+                setHasNewCharacter(true);
+  
+                // Update story ID and fetch story data
+                setStoryId(newStoryId);
+                await fetchStoryData(newStoryId);
+  
+                // Refresh stories list to include the new story
+                const updatedStories = await handleGetGameStories(unwrappedParams.gameId);
+  
+                // Find and select the new story
+                const newStory = updatedStories.find(story => story.story_id === newStoryId);
+                if (newStory) {
+                  setSelectedStory(newStory);
+                }
+  
+                setTimeout(() => {
+                  setCharacterModalOpen(true);
+                }, 500);
+              }
+            } catch (error) {
+              console.error("Error auto-selecting character:", error);
+              toast.error("Failed to auto-select character", { autoClose: 2000 });
+            }
+          }, 1000);
+  
+        } else if (playableNpcs.length > 1) {
+          setTimeout(() => {
+            setCharacterSelectionModalOpen(true);
+          }, 1500);
+        }
+      }
+    }, [flag]);
+  
+    useEffect(() => {
+      let pollInterval;
+      let initialUpdateTimeout;
+      let stabilityTimeout;
+      
+      if (inventoryModalOpen && selectedStory?.story_id) {
+        
+        stabilityTimeout = setTimeout(() => {
+          initialUpdateTimeout = setTimeout(() => {
+            handleInventoryHeartbeatUpdate(selectedStory.story_id);
+          }, 3000);
+          
+          pollInterval = setInterval(() => {
+            handleInventoryHeartbeatUpdate(selectedStory.story_id);
+          }, 30000);
+        }, 1000);
+      }
+      
+>     return () => {
+        if (stabilityTimeout) {
+          clearTimeout(stabilityTimeout);
+        }
+        if (initialUpdateTimeout) {
+          clearTimeout(initialUpdateTimeout);
+        }
+        if (pollInterval) {
+          clearInterval(pollInterval);
+        }
+      };
+    }, [inventoryModalOpen, selectedStory?.story_id, handleInventoryHeartbeatUpdate]);
+  
+    useEffect(() => {
+      if (inventoryUpdateTrigger > 0 && selectedStory?.story_id) {
+        handleInventoryHeartbeatUpdate(selectedStory.story_id);
+        setInventoryUpdateTrigger(0); 
+      }
+    }, [inventoryUpdateTrigger, selectedStory?.story_id, handleInventoryHeartbeatUpdate]);
+  
+>    return (
+      <TTSProvider>
+        {/* <SettingsButton
+          onClick={() => setSettingsModalOpen(true)}
+          isOpen={settingsModalOpen}
+        /> */}
+        <section className="relative h-screen flex flex-col">
+          {storyData && characterModalOpen && (
+            <CharacterModal
+              character={storyData}
+              isOpen={characterModalOpen}
+              setIsOpen={setCharacterModalOpen}
+              abilityDeltas={abilityDeltas}
+            />
+          )}
+  
+          {storyData && inventoryModalOpen && (
+            <>
+              <InventoryModal
+                storyData={storyData}
+                isOpen={inventoryModalOpen}
+                setIsOpen={setInventoryModalOpen}
+                storyId={selectedStory}
+                onInventoryUpdate={() => setInventoryUpdateTrigger(prev => prev + 1)}
+                onUserInteraction={setIsUserInteractingWithInventory}
+                fetchStoryData={fetchStoryData}
+              />
+            </>
+          )}
+  
+          <div className="h-full flex">
+            {/* Sidebar */}
+            <div 
+              className="h-full transition-all duration-300 ease-in-out"
+              style={{ width: layoutWidths.sidebar }}
+            >
+              <Sidebar
+                game={game}
+                storyData={storyData}
+                characterModalOpen={characterModalOpen}
+                setCharacterModalOpen={setCharacterModalOpen}
+                inventoryModalOpen={inventoryModalOpen}
+                setInventoryModalOpen={setInventoryModalOpen}
+                sidebarOpen={sidebarOpen}
+                setSidebarOpen={setSidebarOpen}
+                openSettings={() => setSettingsModalOpen(true)}
+                selectedMusic={selectedMusic}
+                musicList={musicList}
+                setSelectedMusic={setSelectedMusic}
+                stories={stories}
+                selectedStory={selectedStory}
+                handleStoryChange={handleStoryChange}
+                handleStartNewStory={handleStartNewStory}
+                handleUpdateStoryName={handleUpdateStoryName}
+                handleDeleteStory={handleDeleteStory}
+                hasNewInventory={hasNewInventory}
+                hasNewCharacter={hasNewCharacter}
+                selectedVoice={selectedVoice}
+                setSelectedVoice={setSelectedVoice}
+                audioModelEnabled={audioModelEnabled}
+                setAudioModelEnabled={setAudioModelEnabled}
+                canvasViewerOpen={canvasViewerOpen}
+                onCanvasViewerToggle={handleCanvasViewerToggle}
+                groupedVoices={groupedVoices}
+                onInventoryUpdate={() => setInventoryUpdateTrigger(prev => prev + 1)}
+              />
+            </div>
+  
+            {/* Chat Area */}
+            <div 
+              className="h-full flex flex-col transition-all duration-300 ease-in-out"
+              style={{ width: layoutWidths.chat }}
+            >
+              <CharacterSelectionModal
+                game={game}
+                story={stories}
+                storyId={storyId}
+                isOpen={characterSelectionModalOpen}
+                setIsOpen={handleCharacterSelectionModalOpen}
+                setHasNewCharacter={setHasNewCharacter}
+                fetchStoryData={fetchStoryData}
+                setStoryId={setStoryId}
+                handleGetGameStories={handleGetGameStories}
+                setSelectedStory={setSelectedStory}
+                gameId={unwrappedParams.gameId}
+              />
+              <div className="w-full relative">
+                <Header
+                  sidebarOpen={sidebarOpen}
+                  setSidebarOpen={setSidebarOpen}
+                />
+                
+                <hr />
+                {/* 3D View Toggle Button */}
+                {/* {isStagingOrBackstage && (
+                <div className="absolute top-4 right-4 z-10">
+                  <button
+                    onClick={handleCanvasViewerToggle}
+                    className={`p-2 rounded-lg shadow-lg transition-all duration-200 ${
+                      canvasViewerOpen
+                        ? 'bg-purple-600 text-white hover:bg-purple-700'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                    title={canvasViewerOpen ? "Hide 3D View" : "Show 3D View"}
+                  >
+                    <FiBox className="w-5 h-5" />
+                  </button>
+                </div>
+                )} */}
+              </div>
+              <ChatArea
+                OnClick={() => setSettingsModalOpen(true)}
+                IsOpen={settingsModalOpen} 
+                messages={messages}
+                setSidebarOpen={setSidebarOpen}
+                highlightDice={highlightDice}
+                character={storyData}
+                setMessages={setMessages}
+                suggestions={suggestions}
+                onSuggestionClick={onSuggestionClick}
+                setCurrentFace={setCurrentFace}
+                setHighlightDice={setHighlightDice}
+                dicePlay={dicePlay}
+                currentFace={currentFace}
+                diceRolling={diceRolling}
+                setDiceRolling={setDiceRolling}
+                getAnswer={getAnswer}
+                selectedVoice={selectedVoice || game?.ai_voice || ""}
+                audioModelEnabled={audioModelEnabled}
+                setInputText={setInputText}
+                onSendMessage={handleSend}
+                isNewStory={isNewStory}
+                initialMessageCount={initialMessageCount}
+                setInitialMessageCount={setInitialMessageCount}
+                isHistoryLoad={historyLoadFlag}
+                resetHistoryLoadFlag={() => setHistoryLoadFlag(false)}
+                onScrolledToTop={() => setIsBrandNewStory(false)}
+                isBrandNewStory={isBrandNewStory}
+                settingsModalOpen={settingsModalOpen}
+                setSettingsModalOpen={setSettingsModalOpen}
+              />
+              {/* Input Area */}
+              <div className="sticky bottom-0">
+                <InputArea
+                  onSendMessage={(message) => handleSend(message)}
+                  audioModelEnabled={audioModelEnabled}
+                  inputText={inputText}
+                  setInputText={setInputText}
+                />
+              </div>
+            </div>
+  
+            {/* Canvas Area */}
+            {/* {canvasViewerOpen && (
+              <div 
+                className="h-full transition-all duration-300 ease-in-out"
+                style={{ width: layoutWidths.canvas }}
+              >
+                <CanvasViewer
+                  isOpen={canvasViewerOpen}
+                  onToggle={handleCanvasViewerToggle}
+                  isFullscreen={canvasViewerFullscreen}
+                  onToggleFullscreen={handleCanvasViewerFullscreen}
+                  isEmbedded={true}
+                />
+              </div>
+            )} */}
+          </div>
+          <SettingsModal
+            isOpen={settingsModalOpen}
+            setIsOpen={setSettingsModalOpen}
+            stories={stories}
+            selectedStory={selectedStory}
+            handleStoryChange={handleStoryChange}
+            handleStartNewStory={handleStartNewStory}
+            handleUpdateStoryName={handleUpdateStoryName}
+            handleDeleteStory={handleDeleteStory}
+            selectedVoice={selectedVoice}
+            setSelectedVoice={setSelectedVoice}
+            audioModelEnabled={audioModelEnabled}
+            setAudioModelEnabled={setAudioModelEnabled}
+            groupedVoices={groupedVoices}
+            selectedMusic={selectedMusic}
+            musicList={musicList}
+            setSelectedMusic={setSelectedMusic}
+          />
+        </section>
+      </TTSProvider>
+    );
+  };
+  
+  export default withAuth(ChatPage);
+
+

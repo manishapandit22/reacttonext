@@ -216,7 +216,7 @@ export default function InputArea({ onSendMessage, audioModelEnabled }) {
   }
 
   return (
-    <div className="relative w-full bg-transparent px-5 pb-4 md:pb-6 mx-auto md:max-w-4xl">
+    <div className="relative w-full bg-transparent px-5 pb-4 md:pb-6 md:px-20 mx-auto md:max-w-4xl">
       <div className="relative rounded-3xl overflow-hidden shadow-md border border-gray-200/10 dark:border-purple-900/20 bg-white/5 backdrop-blur-sm">
         <textarea
           ref={textareaRef}
