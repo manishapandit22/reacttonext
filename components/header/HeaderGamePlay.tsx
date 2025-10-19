@@ -271,7 +271,7 @@ export default function Header({ sidebarOpen, setSidebarOpen }) {
                 aria-label="profile"
               >
                 <div className="relative w-10 h-10 rounded-full overflow-hidden object-cover">
-                  <Image src={user.profile_photo} fill />
+                  <Image src={user.profile_photo} fill alt="User profile" />
                 </div>
               </Link>
             ) : (
