@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { IoClose } from "react-icons/io5";
 import { FaYoutube } from "react-icons/fa";
-import { LocationImage, NPCImage } from "../../../interface/Create";
+import { LocationImage, NPCImage } from "@/types";
 import { useGameContext } from "../../../contexts/GameContext";
 
 interface MultipleImageCardPreviewProps {

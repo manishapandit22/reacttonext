@@ -8,8 +8,9 @@ import { FormErrors } from '../../GameCreation/FormValidate';
 import { HiOutlineUser, HiOutlineTrash, HiOutlinePlusCircle, HiOutlinePhotograph } from 'react-icons/hi';
 import { FaRegImages } from 'react-icons/fa';
 import LoadingSpinner from '../../ui/LoadingSpinner';
-import { NPC } from '../../../interface/Create';
+import { NPC } from '@/types';
 import { useMultiAutoSave } from '@/lib/apis/useSaveWithDebounce';
+import VoiceSelector from '../../common/VoiceSelector';
 
 import NPCClassSelector from '../NPCClassSelector';
 import { classDescriptions } from '../utils/classDescription';
@@ -39,7 +40,7 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
 }) => {
     const { gameData, setGameData, createNPC, updateNPC, deleteNPC, gameId: contextGameId } = useGameContext();
     const [savingNPCs, setSavingNPCs] = useState<Set<number>>(new Set());
-    const [originalNPCs, setOriginalNPCs] = useState<Map<number, { name: string; description: string; playable: boolean; class: string; images: any[] }>>(new Map());
+    const [originalNPCs, setOriginalNPCs] = useState<Map<number, { name: string; description: string; playable: boolean; class: string; images: any[]; ai_voice: string }>>(new Map());
 
     const labelStyling = "text-[15px] font-medium mb-1 text-accent flex items-center gap-1";
 
@@ -57,7 +58,8 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
                 description: npcData.npc.description || '',
                 playable: npcData.npc.playable || false,
                 class: npcData.npc.class || '',
-                images: [...(npcData.npc.images || [])]
+                images: [...(npcData.npc.images || [])],
+                ai_voice: npcData.npc.ai_voice || ''
             });
             setOriginalNPCs(newOriginalNPCs);
         },
@@ -66,92 +68,6 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
             return npcData.npc.name?.trim() && npcData.npc.description?.trim();
         }
     });
-
-    // Voices for per-NPC selection (fetched once)
-    const [voices, setVoices] = useState<any[]>([]);
-    const [grouped, setGrouped] = useState<Record<string, any[]>>({});
-    const [voicesLoading, setVoicesLoading] = useState(false);
-
-    const DEFAULT_SNIPPET = 'welcome creator, my voice will tell your story';
-
-    useEffect(() => {
-        let mounted = true;
-        const fetchVoices = async () => {
-            setVoicesLoading(true);
-            try {
-                const res = await fetch('/api/text-to-speech');
-                if (!res.ok) throw new Error('Failed to fetch voices');
-                const data = await res.json();
-                const list = (data.voices || []).map((v: any) => ({ voice_id: v.voice_id, name: v.name, labels: v.labels || {} }));
-                if (!mounted) return;
-                setVoices(list);
-                const g = list.reduce((acc: Record<string, any[]>, v: any) => {
-                    const accent = v.labels?.accent || 'Other';
-                    const gender = v.labels?.gender || 'Voice';
-                    const key = `${accent} ${gender}`;
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(v);
-                    return acc;
-                }, {});
-                setGrouped(g);
-            } catch (e) {
-                console.error('Failed to load voices', e);
-            } finally {
-                setVoicesLoading(false);
-            }
-        };
-        fetchVoices();
-        return () => { mounted = false; };
-    }, []);
-
-    // Browser-safe helper to convert ArrayBuffer to base64 (for caching)
-    const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        const chunkSize = 0x8000;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-            const chunk = bytes.subarray(i, i + chunkSize);
-            binary += String.fromCharCode.apply(null, Array.from(chunk) as any);
-        }
-        return typeof btoa === 'function' ? btoa(binary) : '';
-    };
-
-    const handlePreviewVoice = async (voiceId: string) => {
-        if (!voiceId) return;
-        const cacheKey = `tts_preview_${voiceId}`;
-        try {
-            try {
-                const cached = localStorage.getItem(cacheKey);
-                if (cached) {
-                    const audio = new Audio(`data:audio/mpeg;base64,${cached}`);
-                    await audio.play();
-                    return;
-                }
-            } catch (e) {
-                // ignore
-            }
-
-            const res = await fetch('/api/text-to-speech', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: DEFAULT_SNIPPET, voice_id: voiceId })
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({ error: 'TTS failed' }));
-                throw new Error(err.error || 'TTS failed');
-            }
-            const blob = await res.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            const b64 = arrayBufferToBase64(arrayBuffer);
-            try { localStorage.setItem(cacheKey, b64); } catch (e) {}
-            const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
-            await audio.play();
-        } catch (e: any) {
-            console.error('Preview failed', e);
-            toast.error('Voice preview failed: ' + (e?.message || e));
-        }
-    };
 
     useEffect(() => {
         if (gameData.npcs) {
@@ -162,7 +78,8 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
                     description: npc.description || '',
                     playable: npc.playable || false,
                     class: npc.class || '',
-                    images: [...(npc.images || [])]
+                    images: [...(npc.images || [])],
+                    ai_voice: npc.ai_voice || ''
                 });
             });
             setOriginalNPCs(newOriginalNPCs);
@@ -180,7 +97,8 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
             description: npc.description || '',
             playable: npc.playable || false,
             class: npc.class || '',
-            images: npc.images || []
+            images: npc.images || [],
+            ai_voice: npc.ai_voice || ''
         };
 
         return (
@@ -188,6 +106,7 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
             currentData.description !== original.description ||
             currentData.playable !== original.playable ||
             currentData.class !== original.class ||
+            currentData.ai_voice !== original.ai_voice ||
             currentData.images.length !== original.images.length ||
             currentData.images.some((img, imgIndex) =>
                 !original.images[imgIndex] ||
@@ -246,7 +165,8 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
                 description: npc.description || '',
                 playable: npc.playable || false,
                 class: npc.class || '',
-                images: [...(npc.images || [])]
+                images: [...(npc.images || [])],
+                ai_voice: npc.ai_voice || ''
             });
             setOriginalNPCs(newOriginalNPCs);
         } catch (error) {
@@ -333,35 +253,14 @@ const NPCsSection: React.FC<NPCsSectionProps> = ({
                                 />
                             )}
 
-                            {/* Per-NPC voice selector */}
+                            {/* Per-NPC voice selector using reusable component */}
                             <div className="mt-3">
-                                <label className={labelStyling}>Voice</label>
-                                <div className="flex gap-2 items-center">
-                                    <select
-                                        className="flex-1 p-2 border rounded-lg bg-white dark:bg-jacarta-700 dark:text-white"
-                                        value={npc.ai_voice || ''}
-                                        onChange={e => handleNPCFieldChange(index, 'ai_voice', e.target.value)}
-                                    >
-                                        {voicesLoading ? <option>Loading voices...</option> : Object.entries(grouped).length === 0 ? (
-                                            <option value="">No voices available</option>
-                                        ) : (
-                                            Object.entries(grouped).map(([group, list]) => (
-                                                <optgroup key={group} label={group}>
-                                                    {list.map((v: any) => (
-                                                        <option key={v.voice_id} value={v.voice_id}>{v.name}</option>
-                                                    ))}
-                                                </optgroup>
-                                            ))
-                                        )}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        onClick={() => handlePreviewVoice(npc.ai_voice || (voices[0] && voices[0].voice_id))}
-                                        className="px-3 py-2 bg-accent/90 text-white rounded"
-                                    >
-                                        Preview
-                                    </button>
-                                </div>
+                                <VoiceSelector
+                                    selectedVoice={npc.ai_voice || ''}
+                                    onVoiceChange={(voiceId) => handleNPCFieldChange(index, 'ai_voice', voiceId)}
+                                    label="Character Voice"
+                                    showPreview={true}
+                                />
                             </div>
 
                             <MultipleImageCardPreview

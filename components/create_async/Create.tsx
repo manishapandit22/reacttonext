@@ -10,7 +10,7 @@ import ImageModal from "../modals/ImageModal";
 import { useUser } from "../../contexts/UserContext";
 import { GameCreationSuccess } from "./GameCreateSuccess";
 import CharacterCreatorModal from "./CharacterStats";
-import { GameData, NPC } from "../../interface/Create";
+import { GameData, NPC } from "@/types";
 import { validateForm, FormErrors } from "../GameCreation/FormValidate";
 import { fetchGame, fetchGames } from "../GameCreation/CommonFunction";
 import { useGameContext } from "../../contexts/GameContext";
@@ -233,6 +233,20 @@ const GameForm = ({ game_id, isEdit }: Props) => {
       let pendingChange = pendingChanges;
       let hasAssist = hasAssistant;
       if (!id) {
+        // Validate required fields before attempting to save
+        if (!details.gameName?.trim()) {
+          toast.error("Game name is required", { autoClose: 2000 });
+          return;
+        }
+        if (!details.gameOpener?.trim()) {
+          toast.error("Game opener is required", { autoClose: 2000 });
+          return;
+        }
+        if (!(gameData.previewImage instanceof File)) {
+          toast.error("Preview image is required. Please upload an image first.", { autoClose: 3000 });
+          return;
+        }
+        
         const res = await setInitialInstructions({
           gameName: details.gameName,
           gameDescription: details.gameDescription,
@@ -259,8 +273,33 @@ const GameForm = ({ game_id, isEdit }: Props) => {
       }
       toast.success("Game details saved!",{autoClose: 2000});
       setUnsavedChanges(false);
-    } catch (err) {
-      toast.error("Failed to save game details.",{autoClose: 2000});
+    } catch (err: any) {
+      console.error("Error saving game details:", err);
+      
+      // Parse error message for better user feedback
+      let errorMessage = "Failed to save game details.";
+      try {
+        const errorData = JSON.parse(err.message);
+        if (errorData) {
+          // Extract specific field errors
+          const fieldErrors = [];
+          for (const [field, errors] of Object.entries(errorData)) {
+            if (Array.isArray(errors)) {
+              fieldErrors.push(`${field}: ${errors.join(', ')}`);
+            }
+          }
+          if (fieldErrors.length > 0) {
+            errorMessage = fieldErrors.join('; ');
+          }
+        }
+      } catch {
+        // If error message isn't JSON, use the original message
+        if (err.message && !err.message.includes('[object')) {
+          errorMessage = err.message;
+        }
+      }
+      
+      toast.error(errorMessage, { autoClose: 4000 });
       throw err;
     }
   };
@@ -500,6 +539,9 @@ const GameForm = ({ game_id, isEdit }: Props) => {
         formData.append("npc_name", npc.name);
         formData.append("npc_description", npc.description);
         formData.append("is_playable", String(npc.playable));
+        if (npc.ai_voice) {
+          formData.append("ai_voice", npc.ai_voice);
+        }
         updated = await createNPC(gameId, formData);
         npcData = updated?.success?.data || updated;
       } else {
@@ -507,6 +549,9 @@ const GameForm = ({ game_id, isEdit }: Props) => {
         formData.append("npc_name", npc.name);
         formData.append("npc_description", npc.description);
         formData.append("is_playable", String(npc.playable));
+        if (npc.ai_voice) {
+          formData.append("ai_voice", npc.ai_voice);
+        }
         if (npc.class) {
           formData.append("npc_class", npc.class);
         }
@@ -536,6 +581,7 @@ const GameForm = ({ game_id, isEdit }: Props) => {
               playable: npcData.is_playable !== undefined ? npcData.is_playable : n.playable,
               class: npcData.npc_class || n.class,
               characterSheet: npcData.character_template || n.characterSheet,
+              ai_voice: npcData.ai_voice || n.ai_voice,
               images: newImages,
               savedImages: newSavedImages.map((img: any) => ({
                 id: img.image_id,

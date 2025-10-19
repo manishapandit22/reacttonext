@@ -1,9 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import type { GameState } from '../interface/GameState';
-import type { GamePiece } from '../interface/GamePiece';
-import type { Character } from '../interface/Common';
+import type { GameState, GamePiece, Character } from '@/types';
 import { EnemyAI, type EnemyAIDecision } from '../lib/EnemyAI';
 
 const defaultNavMatrix = Array(10).fill(null).map(() => Array(10).fill(1));

@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { useGameStore } from './zustand';
-import type { GamePiece } from '../interface/GamePiece';
-import type { Character } from '../interface/Common';
+import type { GamePiece, Character } from '@/types';
 import * as THREE from 'three';
 
 export const useGameActions = () => {
